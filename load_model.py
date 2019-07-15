@@ -36,6 +36,7 @@ def data_process(model,save_dir,x_test,y_test): # y_test是one-hot之前的数�
     kappa = metrics.cohen_kappa_score(y_true, y_pred)
     # print('kappa score : ', kappa)
     f.writelines('kappa score: %f\n'%kappa)
+    f.writelines('---------------------------- End Report ----------------------------')
     f.close()
 
     # 绘制混淆矩阵

@@ -65,6 +65,7 @@ def resolve_args(args,parse=True):
     if parse==True:
         # 打印参数
         f = open(save_dir+'network_config.txt','a')
+        f.writelines('---------------------------- Start Report ----------------------------')
         f.writelines('network: %s\n'%args.network)
         f.writelines('depth: %d\n'%args.depth)
         f.writelines('firstgroup: %d\n'%args.firstgroup)
