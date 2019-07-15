@@ -1,0 +1,54 @@
+network: igc1
+depth: 5
+firstgroup: 6
+secondgroup: 2
+dataset: indian_pines
+
+train_scale: 0.300000
+spatial_size: 7
+training_batch_size: 32
+training_epoch: 20
+is data bf: False
+
+lr: 0.001000
+lr_factor: 0.333000
+lr_callback:ReduceLROnPlateau
+lr_reduce_by_epoch: 30
+
+optimizer: adam
+dropout: 0.000000
+pooling: max
+flops: 170033
+params: 41541
+whole_training_time: 257.242364
+each_epoch_time: 12.862118
+Test loss: 0.410705
+Test accuracy: 0.932331
+
+classify_report:
+              precision    recall  f1-score   support
+
+         1.0       0.97      0.91      0.94        33
+         2.0       0.92      0.87      0.89      1000
+         3.0       0.93      0.89      0.91       581
+         4.0       0.96      0.94      0.95       166
+         5.0       0.99      0.99      0.99       339
+         6.0       1.00      0.98      0.99       511
+         7.0       1.00      1.00      1.00        20
+         8.0       0.99      1.00      0.99       335
+         9.0       1.00      0.93      0.96        14
+        10.0       0.85      0.93      0.88       681
+        11.0       0.96      0.91      0.93      1719
+        12.0       0.80      0.98      0.88       416
+        13.0       1.00      0.99      1.00       144
+        14.0       0.96      0.99      0.98       886
+        15.0       0.95      0.89      0.92       271
+        16.0       1.00      0.97      0.98        66
+
+    accuracy                           0.93      7182
+   macro avg       0.95      0.95      0.95      7182
+weighted avg       0.94      0.93      0.93      7182
+
+overall_accuracy: 0.934419
+average_accuracy: 0.953614
+kappa score: 0.925415
