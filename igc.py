@@ -50,6 +50,16 @@ def conv_block(name,inputs,kout,kernel_size,strides,padding,activation='relu',ba
     return x
 
 
+def divide1(data,start,end):
+    return data[:,:,:,:,start:end]
+
+def divide2(data,slice):
+    return data[:,:,:,:,:,slice]
+
+def exp_dims(data):
+    return K.expand_dims(data,axis=-1)
+
+
 '''
 igc块
 kernel_size,strides,padding固定，采用维度下降一半，同时channel增加一倍的模型
@@ -92,15 +102,6 @@ def igc_block(name,inputs,kin,kout,primary_partition,secondary_partition,activat
     x=Activation(activation,name=name+'_relu')(x)
     return x
 
-
-def divide1(data,start,end):
-    return data[:,:,:,:,start:end]
-
-def divide2(data,slice):
-    return data[:,:,:,:,:,slice]
-
-def exp_dims(data):
-    return K.expand_dims(data,axis=-1)
 
 '''
 igc_1块
@@ -156,6 +157,7 @@ def igc_group(name,data,num_block,kin,kout,primary_partition, secondary_partitio
         kin=kout
         return data
 
+
 # igc1组    用自定义方法降维，再接恒等
 def igc1_group(name,data,num_block,kin,kout,primary_partition, secondary_partition,kernel_size,strides,padding):
     data=igc1_block(name=name+'_b1',inputs=data,kin=kin,kout=kout,primary_partition=primary_partition,secondary_partition=secondary_partition,
@@ -166,6 +168,14 @@ def igc1_group(name,data,num_block,kin,kout,primary_partition, secondary_partiti
                             kernel_size=kernel_size,strides=strides,padding='same')
     return data
 
+
+# 两种pooling
+def pool(x,pooling,pool_size):
+    if pooling=='max':
+        x=MaxPooling3D(pool_size=pool_size)(x)
+    elif pooling=='avg':
+        x=AveragePooling3D(pool_size=pool_size)(x)
+    return x
 
 
 # igc网络
@@ -219,29 +229,20 @@ def igc1_net(input_shape,num_classes, net_depth,primary_partition,secondary_part
     x_inputs = Input(input_shape)
     # 第一个普通conv
     x=conv_block('g0', x_inputs, kout=channel, kernel_size=(1,1,11), strides=(1,1,1), padding='valid')
-    if pooling=='max':
-        x=MaxPooling3D(pool_size=(1, 1, 2))(x)
-    elif pooling=='avg':
-        x=AveragePooling3D(pool_size=(1, 1, 2))(x)
+    x=pool(x,pooling,pool_size=(1,1,2))
     
     # stage 1
     x=Dropout(dropout)(x)
     x=igc1_group('g1',x,blocks_num[0],kin=channel*1,kout=channel*2,primary_partition=primary_partition,secondary_partition=secondary_partition*2,
                     kernel_size=(3,3,7),strides=(1,1,1),padding='valid')
-    if pooling=='max':
-        x=MaxPooling3D(pool_size=(1, 1, 2))(x)
-    elif pooling=='avg':
-        x=AveragePooling3D(pool_size=(1, 1, 2))(x)
+    x=pool(x,pooling,pool_size=(1,1,2))
 
 
     # stage 2
     x=Dropout(dropout)(x)
     x=igc1_group('g2',x,blocks_num[1],kin=channel*2,kout=channel*4,primary_partition=primary_partition,secondary_partition=secondary_partition*4,
                     kernel_size=(3,3,5),strides=(1,1,1),padding='valid')
-    if pooling=='max':
-        x=MaxPooling3D(pool_size=(1, 1, 2))(x)
-    elif pooling=='avg':
-        x=AveragePooling3D(pool_size=(1, 1, 2))(x)
+    x=pool(x,pooling,pool_size=(1,1,2))
 
     # stage 3
     x=Dropout(dropout)(x)
