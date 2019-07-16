@@ -50,9 +50,9 @@ def get_args(argv,parse=True):
     parser.add_argument('--optimizer', type=str, default='adam',help='optimizer:adam....')
 
     # others
-    parser.add_argument('--dropout', type=float, default=0.1,help='dropout scale')
+    parser.add_argument('--dropout', type=float, default=0,help='dropout scale')
     # parser.add_argument('--filters', type=str, help='eg. --filters=16,32,64,128')
-    parser.add_argument('--pooling', type=str, default='max',help='maxpooling or average pooling')
+    parser.add_argument('--pooling', type=str, default='none',help='maxpooling or average pooling')
 
     args=parser.parse_args(argv)
     save_dir=resolve_args(args,parse)

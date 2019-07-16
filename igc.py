@@ -62,7 +62,6 @@ def exp_dims(data):
 
 '''
 igc块
-kernel_size,strides,padding固定，采用维度下降一半，同时channel增加一倍的模型
 '''
 def igc_block(name,inputs,kin,kout,primary_partition,secondary_partition,activation='relu',batch_normalization=True):
     #x_input=Input(inputs,name='inputsss')  # 7,7,200,16
@@ -109,7 +108,7 @@ igc_1块
 一般卷积操作在第一组内完成
 第二组卷积核固定
 '''
-def igc1_block(name,inputs,kin,kout,primary_partition,secondary_partition,kernel_size,strides,padding,activation='relu',batch_normalization=True):
+def igc1_block(name,inputs,primary_partition,secondary_partition,kernel_size,strides,padding,activation='relu',batch_normalization=True):
     #x_input=Input(inputs,name='inputsss')  # 7,7,200,16
     x=inputs
     x1=[]
@@ -151,21 +150,22 @@ def igc1_block(name,inputs,kin,kout,primary_partition,secondary_partition,kernel
 
 
 # igc组
-def igc_group(name,data,num_block,kin,kout,primary_partition, secondary_partition):
-    for idx in range(num_block):
-        data=igc_block(name=name+'_b%d'%(idx+1),inputs=data,kin=kin,kout=kout,primary_partition=primary_partition,secondary_partition=secondary_partition)
-        kin=kout
-        return data
+def igc_group(name,data,num_block,primary_partition, secondary_partition,kernel_size,strides,padding):
+    data=igc1_block(name=name+'_b1',inputs=data,primary_partition=primary_partition,secondary_partition=secondary_partition,
+                        kernel_size=kernel_size,strides=strides,padding=padding)
+    for idx in range(num_block-1):
+        data=igc1_block(name=name+'_b%d'%(idx+2),inputs=data,primary_partition=primary_partition,secondary_partition=secondary_partition,
+                            kernel_size=kernel_size,strides=(1,1,1),padding='same')
+    return data
 
 
 # igc1组    用自定义方法降维，再接恒等
-def igc1_group(name,data,num_block,kin,kout,primary_partition, secondary_partition,kernel_size,strides,padding):
-    data=igc1_block(name=name+'_b1',inputs=data,kin=kin,kout=kout,primary_partition=primary_partition,secondary_partition=secondary_partition,
+def igc1_group(name,data,num_block,primary_partition, secondary_partition,kernel_size,strides,padding):
+    data=igc1_block(name=name+'_b1',inputs=data,primary_partition=primary_partition,secondary_partition=secondary_partition,
                         kernel_size=kernel_size,strides=strides,padding=padding)
-    kin=kout
     for idx in range(num_block-1):
-        data=igc1_block(name=name+'_b%d'%(idx+2),inputs=data,kin=kin,kout=kout,primary_partition=primary_partition,secondary_partition=secondary_partition,
-                            kernel_size=kernel_size,strides=strides,padding='same')
+        data=igc1_block(name=name+'_b%d'%(idx+2),inputs=data,primary_partition=primary_partition,secondary_partition=secondary_partition,
+                            kernel_size=kernel_size,strides=(1,1,1),padding='same')
     return data
 
 
@@ -178,7 +178,7 @@ def pool(x,pooling,pool_size):
     return x
 
 
-# igc网络
+# igc网络:不用pooling 用stride来做下采样
 def igc_net(input_shape,num_classes, net_depth,primary_partition,secondary_partition):
     #三个stage
     block3_num=int((net_depth-2)/3)
@@ -193,15 +193,15 @@ def igc_net(input_shape,num_classes, net_depth,primary_partition,secondary_parti
     channel=secondary_partition*primary_partition
     x_inputs = Input(input_shape)
     # 第一个普通conv
-    x=conv_block('g0', x_inputs, kout=channel, kernel_size=(3,3,3), strides=(1,1,1), padding='same')
+    x=conv_block('g0', x_inputs, kout=channel, kernel_size=(1,1,11), strides=(1,1,2), padding='valid')
     
     # igc 3 stage
-    x=Dropout(0.25)(x)
-    x=igc_group('g1',x,blocks_num[0],kin=channel*1,kout=channel*1,primary_partition=primary_partition,secondary_partition=secondary_partition)
-    x=Dropout(0.25)(x)
-    x=igc_group('g2',x,blocks_num[1],kin=channel*1,kout=channel*2,primary_partition=primary_partition,secondary_partition=secondary_partition*2)
-    x=Dropout(0.25)(x)
-    x=igc_group('g3',x,blocks_num[2],kin=channel*2,kout=channel*4,primary_partition=primary_partition,secondary_partition=secondary_partition*4)
+    x=igc1_group('g1',x,blocks_num[0],primary_partition=primary_partition,secondary_partition=secondary_partition*2,
+                    kernel_size=(3,3,7),strides=(1,1,2),padding='valid')
+    x=igc1_group('g2',x,blocks_num[1],primary_partition=primary_partition,secondary_partition=secondary_partition*4,
+                    kernel_size=(3,3,5),strides=(1,1,2),padding='valid')
+    x=igc1_group('g3',x,blocks_num[2],primary_partition=primary_partition,secondary_partition=secondary_partition*8,
+                    kernel_size=(2,2,5),strides=(1,1,1),padding='valid')
       
     # 对应不同块有不同的pooling大小
     x=AveragePooling3D(name='avg_pool',pool_size=(2,2,2))(x)
@@ -233,20 +233,20 @@ def igc1_net(input_shape,num_classes, net_depth,primary_partition,secondary_part
     
     # stage 1
     x=Dropout(dropout)(x)
-    x=igc1_group('g1',x,blocks_num[0],kin=channel*1,kout=channel*2,primary_partition=primary_partition,secondary_partition=secondary_partition*2,
+    x=igc1_group('g1',x,blocks_num[0],primary_partition=primary_partition,secondary_partition=secondary_partition*2,
                     kernel_size=(3,3,7),strides=(1,1,1),padding='valid')
     x=pool(x,pooling,pool_size=(1,1,2))
 
 
     # stage 2
     x=Dropout(dropout)(x)
-    x=igc1_group('g2',x,blocks_num[1],kin=channel*2,kout=channel*4,primary_partition=primary_partition,secondary_partition=secondary_partition*4,
+    x=igc1_group('g2',x,blocks_num[1],primary_partition=primary_partition,secondary_partition=secondary_partition*4,
                     kernel_size=(3,3,5),strides=(1,1,1),padding='valid')
     x=pool(x,pooling,pool_size=(1,1,2))
 
     # stage 3
     x=Dropout(dropout)(x)
-    x=igc1_group('g3',x,blocks_num[2],kin=channel*4,kout=channel*8,primary_partition=primary_partition,secondary_partition=secondary_partition*8,
+    x=igc1_group('g3',x,blocks_num[2],primary_partition=primary_partition,secondary_partition=secondary_partition*8,
                     kernel_size=(2,2,5),strides=(1,1,1),padding='valid')
     
     # 对应不同块有不同的pooling大小

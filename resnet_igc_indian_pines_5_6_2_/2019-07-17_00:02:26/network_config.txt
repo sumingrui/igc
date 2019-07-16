@@ -1,0 +1,21 @@
+---------------------------- Start Report ----------------------------
+network: resnet_igc
+depth: 5
+firstgroup: 6
+secondgroup: 2
+dataset: indian_pines
+
+train_scale: 0.300000
+spatial_size: 7
+training_batch_size: 32
+training_epoch: 130
+is data bf: False
+
+lr: 0.001000
+lr_factor: 0.333000
+lr_callback:ReduceLROnPlateau
+lr_reduce_by_epoch: 30
+
+optimizer: adam
+dropout: 0.000000
+pooling: none

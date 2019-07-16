@@ -12,8 +12,10 @@ from keras.models import load_model
 import tensorflow as tf
 import numpy as np
 from data_pretreat import handle_data
-from igc import igc1_net
-from plain import plain_net
+from igc import igc1_net,igc_net
+from plain import plain1_net,plain_net
+from resnet import res_net
+from resnet_igc import igc_res_net
 import options
 from load_model import data_process,draw_pic
 
@@ -61,7 +63,7 @@ def get_flops():
 def run_model(data,model,args,save_dir):
     # ReduceLROnPlateau和LearningRateScheduler选一个
     if args.lr_callback == 0:
-        lr_s = partial(lr_schedule,lr_init=lr, lr_by_epoch=args.lr_byepoch, lr_scale=args.lr_factor)
+        lr_s = partial(lr_schedule,lr_init=args.lr, lr_by_epoch=args.lr_byepoch, lr_scale=args.lr_factor)
         reduce_lr = LearningRateScheduler(lr_s)
 
     elif args.lr_callback == 1:
@@ -160,14 +162,22 @@ def main(argv):
 
     if args.network=='igc1':
         s_model = igc1_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup,args.dropout,args.pooling)
+    elif args.network=='igc':
+        s_model = igc_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup)
+    elif args.network=='plain1':
+        s_model = plain1_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup,args.dropout,args.pooling)
     elif args.network=='plain':
-        s_model = plain_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup,args.dropout,args.pooling)
+        s_model = plain_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup)
+    elif args.network=='resnet':
+        s_model =res_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup)
+    elif args.network=='resnet_igc':
+        s_model = igc_res_net(x_train[0].shape,num_classes,args.depth,args.firstgroup,args.secondgroup)
     
-    data=(x_train,x_test,y_train,y_test)
+    #data=(x_train,x_test,y_train,y_test)
     plot_model(s_model, to_file=save_dir+'model.png', show_shapes=True)
-    run_model(data,s_model, args, save_dir)
+    #run_model(data,s_model, args, save_dir)
     # 后处理
-    analysis_consequence(data,y_eval,save_dir,args.dataset,args.spatial_size,args.bf)
+    #analysis_consequence(data,y_eval,save_dir,args.dataset,args.spatial_size,args.bf)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

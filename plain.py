@@ -33,12 +33,43 @@ def conv_block(name,inputs,kout,kernel_size,strides,padding,activation='relu',ba
 def plain_group(name,data,num_block,kout,kernel_size,strides,padding):
     data=conv_block(name=name+'_b1',inputs=data,kout=kout,kernel_size=kernel_size,strides=strides,padding=padding)
     for idx in range(num_block-1):
-        data=conv_block(name=name+'_b%d'%(idx+2),inputs=data,kout=kout,kernel_size=kernel_size,strides=strides,padding='same')
+        data=conv_block(name=name+'_b%d'%(idx+2),inputs=data,kout=kout,kernel_size=kernel_size,strides=(1,1,1),padding='same')
     return data
 
 
-# plain网络
-def plain_net(input_shape,num_classes,net_depth,primary_partition,secondary_partition,dropout,pooling):
+# plain 网络
+def plain_net(input_shape,num_classes,net_depth,primary_partition,secondary_partition):
+    #三个stage
+    block3_num=int((net_depth-2)/3)
+    block2_num=int((net_depth-2)/3)
+    block1_num=int((net_depth-2)/3)
+    blocks_num=(block1_num,block2_num,block3_num)
+    if net_depth!=((block1_num+block2_num+block3_num)*1+2) or block3_num<=0:
+        print('invalid depth number: %d'%net_depth,', blocks numbers: ',blocks_num)
+        return
+    
+    # 第一个conv之后需要的channel数量
+    channel=secondary_partition*primary_partition
+    x_inputs = Input(input_shape)
+    # 第一个普通conv
+    x=conv_block('g0', x_inputs, kout=channel, kernel_size=(1,1,11), strides=(1,1,2), padding='valid')    
+    x=plain_group('g1',x,blocks_num[0],kout=channel*2,kernel_size=(3,3,7),strides=(1,1,2),padding='valid')
+    x=plain_group('g2',x,blocks_num[1],kout=channel*4,kernel_size=(3,3,5),strides=(1,1,2),padding='valid')
+    x=plain_group('g3',x,blocks_num[2],kout=channel*8,kernel_size=(2,2,5),strides=(1,1,1),padding='valid')
+    
+    # 对应不同块有不同的pooling大小
+    x=AveragePooling3D(name='avg_pool',pool_size=2)(x)
+    x=Flatten()(x)
+    x=Dense(num_classes, activation='softmax', name='fc1')(x)
+    
+    model = Model(inputs = x_inputs, outputs = x, name = 'plain')
+    model.summary()
+
+    return model
+
+
+# plain1网络
+def plain1_net(input_shape,num_classes,net_depth,primary_partition,secondary_partition,dropout,pooling):
     #三个stage
     block3_num=int((net_depth-2)/3)
     block2_num=int((net_depth-2)/3)

@@ -1,3 +1,0 @@
-'''
-resnet igc net
-'''
